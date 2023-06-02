@@ -296,6 +296,7 @@ dependencies:
   - pip:
       - h5py==3.8.0
       - opencv-python==4.7.0.72
+      - pytorch-msssim==1.0.0
       - super-image==0.1.7
       - torchvision==0.15.2
 prefix: C:\Users\thinl\scoop\apps\miniconda3\current\envs\torch

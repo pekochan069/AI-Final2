@@ -126,7 +126,6 @@ class Generator(nn.Module):
                 nn.init.constant_(m.bias, 0)
 
     def forward(self, X):
-        print(X.shape)
         X = self.layers1(X)
         X = X + self.layers2(X)
         return self.layers3(X)
