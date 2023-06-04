@@ -1,17 +1,13 @@
 from os import listdir, makedirs, remove
 from os.path import join, exists, join, basename
-from shutil import copyfile
 import urllib
 import tarfile
 
-import torch.nn.functional as F
 import torchvision
 import torchvision.transforms as transforms
-import torchvision.transforms.functional as TF
 import torch.utils.data as data
-from datasets import load_dataset, load_from_disk, get_dataset_split_names
+from datasets import load_dataset, Image
 from PIL import Image
-import os
 
 
 def is_image_file(filename):
@@ -50,14 +46,22 @@ class DatasetFromFolder(data.Dataset):
 class HuggingFaceDataset(data.Dataset):
     def __init__(self, name, split, input_transform=None, target_transform=None):
         super(HuggingFaceDataset, self).__init__()
-        self.dataset = load_dataset(name, "bicubic_x2", split=split).with_format(
-            "torch"
-        )
+        self.dataset = load_dataset(name, "bicubic_x2", split=split)["hr"]
         self.input_transform = input_transform
         self.target_transform = target_transform
 
     def __getitem__(self, index):
-        pass
+        input = load_img(self.dataset[index])
+        target = input.copy()
+        if self.input_transform:
+            input = self.input_transform(input)
+        if self.target_transform:
+            target = self.target_transform(target)
+
+        return input, target
+
+    def __len__(self):
+        return len(self.dataset)
 
 
 def calculate_valid_crop_size(crop_size, upscale_factor):
@@ -198,14 +202,20 @@ def get_bsds300(upscale_factor: int, batch_size=20):
     return train_loader, test_loader
 
 
-def download_bsd100(dest="data"):
-    output_image_dir = join(dest, "BSD100_SR/images")
+def download_bsds500(dest="data"):
+    output_image_dir = join(dest, "BSR/BSDS500/data/images")
 
     if not exists(output_image_dir):
         if not exists(dest):
             makedirs(dest)
+        url = "http://www.eecs.berkeley.edu/Research/Projects/CS/vision/grouping/BSR/BSR_bsds500.tgz"
+        print("downloading url ", url)
 
-        file_path = join(dest, "BSD100-images.tgz")
+        data = urllib.request.urlopen(url)
+
+        file_path = join(dest, basename(url))
+        with open(file_path, "wb") as f:
+            f.write(data.read())
 
         print("Extracting data")
         with tarfile.open(file_path) as tar:
@@ -217,8 +227,65 @@ def download_bsd100(dest="data"):
     return output_image_dir
 
 
+def get_bsds500(upscale_factor: int, batch_size=20):
+    root_dir = download_bsds500()
+    train_dir = join(root_dir, "train")
+    val_dir = join(root_dir, "val")
+    test_dir = join(root_dir, "test")
+    crop_size = calculate_valid_crop_size(256, upscale_factor)
+
+    train_data = DatasetFromFolder(
+        train_dir,
+        input_transform=input_transform(crop_size, upscale_factor),
+        target_transform=target_transform(crop_size),
+    )
+
+    train_loader = data.DataLoader(
+        train_data, batch_size=batch_size, shuffle=True, num_workers=4
+    )
+
+    val_data = DatasetFromFolder(
+        val_dir,
+        input_transform=input_transform(crop_size, upscale_factor),
+        target_transform=target_transform(crop_size),
+    )
+
+    val_loader = data.DataLoader(
+        val_data, batch_size=batch_size, shuffle=False, num_workers=4
+    )
+
+    test_data = DatasetFromFolder(
+        test_dir,
+        input_transform=input_transform(crop_size, upscale_factor),
+        target_transform=target_transform(crop_size),
+    )
+
+    test_loader = data.DataLoader(
+        test_data, batch_size=batch_size, shuffle=False, num_workers=4
+    )
+
+    return train_loader, val_loader, test_loader
+
+
+def decompress_bsd100(dest="data"):
+    output_image_dir = join(dest, "BSD100_SR/images")
+
+    if not exists(output_image_dir):
+        if not exists(dest):
+            makedirs(dest)
+
+        file_path = join(dest, "BSD100-images.tar.gz")
+
+        print("Extracting data")
+        with tarfile.open(file_path) as tar:
+            for item in tar:
+                tar.extract(item, dest)
+
+    return output_image_dir
+
+
 def get_bsd100(upscale_factor: int, batch_size=20):
-    root_dir = download_bsd100()
+    root_dir = decompress_bsd100()
     test_dir = join(root_dir, "targets")
 
     crop_size = calculate_valid_crop_size(256, upscale_factor)
@@ -236,21 +303,37 @@ def get_bsd100(upscale_factor: int, batch_size=20):
     return test_loader
 
 
-def get_div2k(batch_size=8):
-    train_data = load_dataset(
-        "eugenesiow/Div2k", "bicubic_x2", split="train"
-    ).with_format("torch")
+def get_div2k_raw(batch_size=8):
+    train_data = load_dataset("eugenesiow/Div2k", "bicubic_x2", split="train")
+
+    test_data = load_dataset("eugenesiow/Div2k", "bicubic_x2", split="validation")
+
+    return train_data, test_data
+
+
+def get_div2k(upscale_factor=4, batch_size=10):
+    crop_size = calculate_valid_crop_size(256, upscale_factor)
+
+    train_data = HuggingFaceDataset(
+        "eugenesiow/Div2k",
+        split="train",
+        input_transform=input_transform(crop_size, upscale_factor),
+        target_transform=target_transform(crop_size),
+    )
 
     train_loader = data.DataLoader(
         train_data, batch_size=batch_size, shuffle=True, num_workers=4
     )
 
-    test_data = load_dataset(
-        "eugenesiow/Div2k", "bicubic_x2", split="validation"
-    ).with_format("torch")
-
-    test_loader = data.DataLoader(
-        test_data, batch_size=batch_size, shuffle=False, num_workers=4
+    val_data = HuggingFaceDataset(
+        "eugenesiow/Div2k",
+        split="validation",
+        input_transform=input_transform(crop_size, upscale_factor),
+        target_transform=target_transform(crop_size),
     )
 
-    return train_loader, test_loader
+    val_loader = data.DataLoader(
+        val_data, batch_size=batch_size, shuffle=False, num_workers=4
+    )
+
+    return train_loader, val_loader

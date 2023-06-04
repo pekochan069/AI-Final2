@@ -1,18 +1,34 @@
 import torch
 import torch.nn as nn
 import torchvision
-from torchvision.models.vgg import vgg16
+from torchvision.models.vgg import vgg16, VGG16_Weights, vgg19, VGG19_Weights
 
 
 class VGGPerceptualLoss(torch.nn.Module):
     # https://gist.github.com/alper111/8233cdb0414b4cb5853f2f730ab95a49
-    def __init__(self, resize=True):
+    def __init__(self, resize=False):
         super(VGGPerceptualLoss, self).__init__()
         blocks = []
-        blocks.append(torchvision.models.vgg16(weights=True).features[:4].eval())
-        blocks.append(torchvision.models.vgg16(weights=True).features[4:9].eval())
-        blocks.append(torchvision.models.vgg16(weights=True).features[9:16].eval())
-        blocks.append(torchvision.models.vgg16(weights=True).features[16:23].eval())
+        blocks.append(
+            torchvision.models.vgg16(weights=VGG16_Weights.IMAGENET1K_V1)
+            .features[:4]
+            .eval()
+        )
+        blocks.append(
+            torchvision.models.vgg16(weights=VGG16_Weights.IMAGENET1K_V1)
+            .features[4:9]
+            .eval()
+        )
+        blocks.append(
+            torchvision.models.vgg16(weights=VGG16_Weights.IMAGENET1K_V1)
+            .features[9:16]
+            .eval()
+        )
+        blocks.append(
+            torchvision.models.vgg16(weights=VGG16_Weights.IMAGENET1K_V1)
+            .features[16:23]
+            .eval()
+        )
         for bl in blocks:
             for p in bl.parameters():
                 p.requires_grad = False
@@ -56,10 +72,32 @@ class VGGPerceptualLoss(torch.nn.Module):
         return loss
 
 
+class PerceptualLoss(nn.Module):
+    def __init__(self, vgg_coef, adversarial_coef):
+        super(PerceptualLoss, self).__init__()
+        _vgg19 = vgg19(weights=VGG19_Weights.IMAGENET1K_V1)
+        self.vgg19 = nn.Sequential(*_vgg19.features).eval()
+        for p in self.vgg19.parameters():
+            p.requires_grad = False
+        self.euclidean_distance = nn.MSELoss()
+        self.vgg_coef = vgg_coef
+        self.adversarial_coef = adversarial_coef
+
+    def forward(self, sr_img, hr_img, output_labels):
+        adversarial_loss = torch.mean(1 - output_labels)
+        vgg_loss = self.euclidean_distance(self.vgg19(sr_img), self.vgg19(hr_img))
+        pixel_loss = self.euclidean_distance(sr_img, hr_img)
+        return (
+            pixel_loss
+            + self.adversarial_coef * adversarial_loss
+            + self.vgg_coef * vgg_loss
+        )
+
+
 class GeneratorLoss(nn.Module):
     def __init__(self):
         super(GeneratorLoss, self).__init__()
-        vgg = vgg16(weights=True)
+        vgg = vgg16(weights=VGG16_Weights.IMAGENET1K_V1)
         loss_network = nn.Sequential(*list(vgg.features)[:31]).eval()
         for param in loss_network.parameters():
             param.requires_grad = False

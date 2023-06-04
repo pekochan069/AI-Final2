@@ -1,6 +1,5 @@
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
 
 
 class GeneratorResBlock(nn.Module):
@@ -148,7 +147,7 @@ class DiscriminatorConvBlock(nn.Module):
             )
         )
         layers.append(nn.BatchNorm2d(out_channels))
-        layers.append(nn.LeakyReLU(0.2))
+        layers.append(nn.LeakyReLU(0.2, inplace=True))
 
         self.layers = nn.Sequential(*layers)
 
@@ -172,7 +171,7 @@ class Discriminator(nn.Module):
                 bias=False,
             )
         )
-        layers.append(nn.LeakyReLU(0.2))
+        layers.append(nn.LeakyReLU(0.2, inplace=True))
 
         layers.append(DiscriminatorConvBlock(64, 64, 3, 2))
         layers.append(DiscriminatorConvBlock(64, 128, 3, 1))
@@ -181,12 +180,12 @@ class Discriminator(nn.Module):
         layers.append(DiscriminatorConvBlock(256, 256, 3, 2))
         layers.append(DiscriminatorConvBlock(256, 512, 3, 1))
         layers.append(DiscriminatorConvBlock(512, 512, 3, 2))
-        # layers.append(nn.AdaptiveAvgPool2d(1))
+        layers.append(nn.AdaptiveAvgPool2d(1))
 
-        # layers.append(nn.Linear(512, 1024))
-        # layers.append(nn.LeakyReLU(0.2))
-        # layers.append(nn.Linear(1024, 1))
-        layers.append(nn.Conv2d(512, 1, 1, 1, 1))
+        layers.append(nn.Conv2d(512, 1024, 1, bias=False))
+        layers.append(nn.LeakyReLU(0.2, inplace=True))
+        layers.append(nn.Conv2d(1024, 1, 1, bias=False))
+        layers.append(nn.Dropout2d(0.2, inplace=True))
 
         self.layers = nn.Sequential(*layers)
 
@@ -202,4 +201,5 @@ class Discriminator(nn.Module):
 
     def forward(self, X):
         X = self.layers(X)
-        return F.sigmoid(F.avg_pool2d(X, X.size()[2:])).view(X.size()[0], -1)
+        X = X.flatten(1)
+        return F.sigmoid(X)

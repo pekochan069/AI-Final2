@@ -211,6 +211,7 @@ dependencies:
   - prometheus_client=0.16.0=pyhd8ed1ab_0
   - prompt-toolkit=3.0.38=pyha770c72_0
   - prompt_toolkit=3.0.38=hd8ed1ab_0
+  - protobuf=4.21.12=py311h12c1d0e_0
   - psutil=5.9.5=py311ha68e1ae_0
   - pthread-stubs=0.4=hcd874cb_1001
   - pthreads-win32=2.9.1=hfa6e2cd_3
@@ -260,6 +261,7 @@ dependencies:
   - stack_data=0.6.2=pyhd8ed1ab_0
   - sympy=1.12=pyh04b8f61_3
   - tbb=2021.9.0=h91493d7_0
+  - tensorboardx=2.5=pyhd8ed1ab_0
   - terminado=0.17.0=pyh08f2357_0
   - tinycss2=1.2.1=pyhd8ed1ab_0
   - tk=8.6.12=h8ffe710_0

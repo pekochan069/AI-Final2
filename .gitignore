@@ -5,6 +5,7 @@ data/BSDS300/
 data/BSD100_SR/
 data/*.zip
 data/image_SRF_4
+data/BSR
 
 *.pth
 *.safetensors
