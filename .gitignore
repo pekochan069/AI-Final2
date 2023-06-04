@@ -9,6 +9,6 @@ data/BSR
 
 *.pth
 *.safetensors
-*.tar.gz
+cifar-10-python.tar.gz
 
 results/*.txt
