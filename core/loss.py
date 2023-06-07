@@ -103,6 +103,7 @@ class GeneratorLoss(nn.Module):
             param.requires_grad = False
         self.loss_network = loss_network
         self.mse_loss = nn.MSELoss()
+        self.image_loss = nn.L1Loss()
         self.tv_loss = TVLoss()
 
     def forward(self, out_labels, out_images, target_images):
@@ -113,7 +114,7 @@ class GeneratorLoss(nn.Module):
             self.loss_network(out_images), self.loss_network(target_images)
         )
         # Image Loss
-        image_loss = self.mse_loss(out_images, target_images)
+        image_loss = self.image_loss(out_images, target_images)
         # TV Loss
         tv_loss = self.tv_loss(out_images)
         return (
