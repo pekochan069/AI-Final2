@@ -46,7 +46,7 @@ class DatasetFromFolder(data.Dataset):
 class HuggingFaceDataset(data.Dataset):
     def __init__(self, name, split, input_transform=None, target_transform=None):
         super(HuggingFaceDataset, self).__init__()
-        self.dataset = load_dataset(name, "bicubic_x2", split=split)["hr"]
+        self.dataset = load_dataset(name, "bicubic_x4", split=split)["hr"]
         self.input_transform = input_transform
         self.target_transform = target_transform
 
@@ -284,11 +284,11 @@ def decompress_bsd100(dest="data"):
     return output_image_dir
 
 
-def get_bsd100(upscale_factor: int, batch_size=20):
+def get_bsd100(upscale_factor: int, batch_size=20, hr_size=256):
     root_dir = decompress_bsd100()
     test_dir = join(root_dir, "targets")
 
-    crop_size = calculate_valid_crop_size(256, upscale_factor)
+    crop_size = calculate_valid_crop_size(hr_size, upscale_factor)
 
     test_data = DatasetFromFolder(
         test_dir,
@@ -311,7 +311,7 @@ def get_div2k_raw(batch_size=8):
     return train_data, test_data
 
 
-def get_div2k(upscale_factor=4, batch_size=10):
+def get_div2k_huggingface(upscale_factor=4, batch_size=10):
     crop_size = calculate_valid_crop_size(256, upscale_factor)
 
     train_data = HuggingFaceDataset(
@@ -329,6 +329,58 @@ def get_div2k(upscale_factor=4, batch_size=10):
         "eugenesiow/Div2k",
         split="validation",
         input_transform=input_transform(crop_size, upscale_factor),
+        target_transform=target_transform(crop_size),
+    )
+
+    val_loader = data.DataLoader(
+        val_data, batch_size=batch_size, shuffle=False, num_workers=4
+    )
+
+    return train_loader, val_loader
+
+
+def decompress_div2k_custom(dest="data"):
+    output_image_dir = join(dest, "DIV2K")
+
+    if not exists(output_image_dir):
+        if not exists(dest):
+            makedirs(dest)
+
+        file_path = join(dest, "DIV2K.tgz")
+
+        print("Extracting data")
+        with tarfile.open(file_path) as tar:
+            for item in tar:
+                tar.extract(item, dest)
+
+    return output_image_dir
+
+
+def get_div2k_custom(batch_size=12):
+    root_dir = decompress_div2k_custom()
+    train_dir = join(root_dir, "HR")
+
+    crop_size = calculate_valid_crop_size(256, 4)
+
+    train_data = DatasetFromFolder(
+        train_dir,
+        input_transform=transforms.Compose(
+            [
+                transforms.Resize((64, 64)),
+                transforms.ToTensor(),
+            ]
+        ),
+        target_transform=transforms.Compose([transforms.ToTensor()]),
+    )
+
+    train_loader = data.DataLoader(
+        train_data, batch_size=batch_size, shuffle=True, num_workers=4
+    )
+
+    val_data = HuggingFaceDataset(
+        "eugenesiow/Div2k",
+        split="validation",
+        input_transform=input_transform(crop_size, 4),
         target_transform=target_transform(crop_size),
     )
 
