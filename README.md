@@ -15,6 +15,12 @@ conda env create -f environment.yaml
 conda activate torch
 ```
 
+### Prepare dataset
+
+Download custom preprocessed DIV2K images from [here](https://drive.google.com/file/d/1Gf524LPWwq2HoVTksmIeEzxcd0lnTkk5/view?usp=sharing)
+
+Then, place downloaded `DIV2K.tgz` file in `data/` forder
+
 ## remove huggingface dataset (DIV2K)
 
 ```bash
